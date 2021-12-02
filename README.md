@@ -1,2 +1,2 @@
 # MarioBot
-Implementation of bot which learns to play Mario using a NEAT algorithm
+Implementation of bot which learns to play Mario using a Deep Q-Learning algorithm.
