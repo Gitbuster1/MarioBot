@@ -1,9 +1,13 @@
 import time
+
 import cv2
 import numpy as np
 import mss
+from matplotlib import pyplot as plt
 from pynput import keyboard, mouse
 import keyboard as kb
+
+from Model.DQNAgent import DQNAgent
 
 
 def find_object(game_area, obj_img, threshold):
@@ -116,10 +120,6 @@ def recognize_digit(digits, w_digit, h_digit):
         #             cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
 
 
-
-
-
-
 def build_number():
     pass
 
@@ -128,21 +128,46 @@ def close_app():
     exit()
 
 
+# def train_agent():
+#     num_episodes = 2000
+#     agent = Agent()
+#     env = Grid()
+#     rewards = []
+#     for _ in range(num_episodes):
+#         state = env.reset()
+#         episode_reward = 0
+#         while True:
+#             action_id, action = agent.act(state)
+#             next_state, reward, terminal = env.step(action)
+#             episode_reward += reward
+#
+#             agent.q_update(state, action_id, reward, next_state, terminal)
+#             state = next_state
+#
+#             if terminal:
+#                 break
+#         rewards.append(episode_reward)
+#
+#     plt.plot(rewards)
+#     plt.show()
+#     return agent.best_policy()
+
+
 def run():
     key = keyboard.Controller()
-    enemy1_img = cv2.imread("enemy1.png", cv2.IMREAD_GRAYSCALE)
-    #enemy1_img = cv2.GaussianBlur(enemy1_img, (5, 5), 0)
-    #enemy1_img = cv2.Canny(enemy1_img, 50, 200, 255)
-    #enemy1_img = cv2.cvtColor(enemy1_img, cv2.COLOR_BGR2GRAY)
-    enemy2_img = cv2.imread("enemy2.png", cv2.IMREAD_GRAYSCALE)
-    enemy2_flipped_img = cv2.imread("enemy2_flipped.png", cv2.IMREAD_GRAYSCALE)
-    #enemy2_img = cv2.cvtColor(enemy2_img, cv2.COLOR_BGR2GRAY)
-    flag_img = cv2.imread("flag.png", cv2.IMREAD_GRAYSCALE)
-    #flag_img = cv2.cvtColor(flag_img, cv2.COLOR_BGR2GRAY)
-    castle_img = cv2.imread("castle.png", cv2.IMREAD_GRAYSCALE)
-    #castle_img = cv2.cvtColor(castle_img, cv2.COLOR_BGR2GRAY)
-    score_title_img = cv2.imread("score_title.png", cv2.IMREAD_GRAYSCALE)
-    time_title_img = cv2.imread("time_title.png", cv2.IMREAD_GRAYSCALE)
+    enemy1_img = cv2.imread("Resources/enemy1.png", cv2.IMREAD_GRAYSCALE)
+    # enemy1_img = cv2.GaussianBlur(enemy1_img, (5, 5), 0)
+    # enemy1_img = cv2.Canny(enemy1_img, 50, 200, 255)
+    # enemy1_img = cv2.cvtColor(enemy1_img, cv2.COLOR_BGR2GRAY)
+    enemy2_img = cv2.imread("Resources/enemy2.png", cv2.IMREAD_GRAYSCALE)
+    enemy2_flipped_img = cv2.imread("Resources/enemy2_flipped.png", cv2.IMREAD_GRAYSCALE)
+    # enemy2_img = cv2.cvtColor(enemy2_img, cv2.COLOR_BGR2GRAY)
+    flag_img = cv2.imread("Resources/flag.png", cv2.IMREAD_GRAYSCALE)
+    # flag_img = cv2.cvtColor(flag_img, cv2.COLOR_BGR2GRAY)
+    castle_img = cv2.imread("Resources/castle.png", cv2.IMREAD_GRAYSCALE)
+    # castle_img = cv2.cvtColor(castle_img, cv2.COLOR_BGR2GRAY)
+    score_title_img = cv2.imread("Resources/score_title.png", cv2.IMREAD_GRAYSCALE)
+    time_title_img = cv2.imread("Resources/time_title.png", cv2.IMREAD_GRAYSCALE)
     # TODO: change this to a dynamic version, not static (so it can work on different devices and screens)
     with mss.mss() as mss_instance:
         monitor = mss_instance.monitors[2]
@@ -151,8 +176,8 @@ def run():
         screenshot = mss_instance.grab(monitor)
         game_area = np.array(screenshot)
         game_area = cv2.cvtColor(game_area, cv2.COLOR_BGR2GRAY)
-        #game_area = cv2.GaussianBlur(game_area, (5, 5), 0)
-        #game_area = cv2.Canny(game_area, 50, 200, 255)
+        # game_area = cv2.GaussianBlur(game_area, (5, 5), 0)
+        # game_area = cv2.Canny(game_area, 50, 200, 255)
 
         check_for_enemy(game_area, enemy1_img, threshold=0.46)
         check_for_enemy(game_area, enemy2_img, threshold=0.46)
@@ -177,3 +202,85 @@ def run():
 
 
 run()
+
+# ----------
+# Build env (first level, right only)
+env = gym_super_mario_bros.make('SuperMarioBros-1-1-v0')
+env = BinarySpaceToDiscreteSpaceEnv(env, RIGHT_ONLY)
+env = wrapper(env)
+
+# Parameters
+states = (84, 84, 4)
+actions = env.action_space.n
+
+# Agent
+agent = DQNAgent(states=states, actions=actions, max_memory=100000, double_q=True)
+
+# Episodes
+episodes = 10000
+rewards = []
+
+# Timing
+start = time.time()
+step = 0
+
+# Main loop
+for e in range(episodes):
+
+    # Reset env
+    state = env.reset()
+
+    # Reward
+    total_reward = 0
+    iter = 0
+
+    # Play
+    while True:
+
+        # Show env (disabled)
+        # env.render()
+
+        # Run agent
+        action = agent.run(state=state)
+
+        # Perform action
+        next_state, reward, done, info = env.step(action=action)
+
+        # Remember transition
+        agent.add(experience=(state, next_state, action, reward, done))
+
+        # Update agent
+        agent.learn()
+
+        # Total reward
+        total_reward += reward
+
+        # Update state
+        state = next_state
+
+        # Increment
+        iter += 1
+
+        # If done break loop
+        if done or info['flag_get']:
+            break
+
+    # Rewards
+    rewards.append(total_reward / iter)
+
+    # Print
+    if e % 100 == 0:
+        print('Episode {e} - +'
+              'Frame {f} - +'
+              'Frames/sec {fs} - +'
+              'Epsilon {eps} - +'
+              'Mean Reward {r}'.format(e=e,
+                                       f=agent.step,
+                                       fs=np.round((agent.step - step) / (time.time() - start)),
+                                       eps=np.round(agent.eps, 4),
+                                       r=np.mean(rewards[-100:])))
+        start = time.time()
+        step = agent.step
+
+# Save rewards
+np.save('rewards.npy', rewards)
